@@ -1,6 +1,6 @@
 fileFormatVersion: 2
-guid: 356bef0f8d2ec324f9c71afab35315e0
-timeCreated: 1524500678
+guid: aee29fea7f1544449b26d3db2e2acece
+timeCreated: 1524786494
 licenseType: Free
 ModelImporter:
   serializedVersion: 22
@@ -11,7 +11,6 @@ ModelImporter:
     2300000: //RootNode
     3300000: //RootNode
     4300000: Cube
-    4300002: PlayerCube
     7400000: Default Take
     9500000: //RootNode
   externalObjects: {}
