@@ -11,6 +11,7 @@ public class PlayerScript : MonoBehaviour {
     public float arrowPower = 30f;
     public float arrowTimerMax = 1f;
 
+    private Animator animator;
     public float MaxSpeed = 50;
     public float Acceleration = 400;
     public float JumpSpeed = 20;
@@ -36,11 +37,12 @@ public class PlayerScript : MonoBehaviour {
     float percentageArrowPower = 0f;
 
 
-    // Use this for initialization
     void Awake () {		
 		SpawnBow ();
-		rb = GetComponent<Rigidbody> ();
+		rb = GetComponent<Rigidbody>();
         fakeArrow = new GameObject();
+
+        animator = transform.GetChild(0).GetComponent<Animator>();
     }
 
 	void Update() {
@@ -165,19 +167,12 @@ public class PlayerScript : MonoBehaviour {
         } else {
             jumpKeyDown = false;
         }
-    }
 
-    //Splittet Rigidbody Velocity in XYZ und limitiert X-Wert um maxVelocity (Horizontal)
-    //private void LimitHorizontalVelocity() {
-    //    Vector3 limitVector = rb.velocity;
-    //    if(rb.velocity.x >= MaxSpeed) {
-    //        limitVector = new Vector3(MaxSpeed, rb.velocity.y, rb.velocity.z);
-    //    }
-    //    if(rb.velocity.x <= -MaxSpeed) {
-    //        limitVector = new Vector3(-MaxSpeed, rb.velocity.y, rb.velocity.z);
-    //    }
-    //    rb.velocity = limitVector;
-    //}
+        //Movement Aimationen
+        float actualSpeed = Mathf.Abs(rb.velocity.x) / MaxSpeed;
+        animator.SetFloat("MoveSpeed", actualSpeed);
+        //Debug.Log(actualSpeed);
+    }
 
     //Schauen ob der Arrow auflädt und platziere Arrow Attrappe. Setze Maximale Chargedauer.
     private void IsArrowIsCharging() {
@@ -214,7 +209,6 @@ public class PlayerScript : MonoBehaviour {
         rbArrow.velocity = directionVector * arrowVelocity;
 
         Vector3 movementDirectionVector = rb.velocity.normalized;
-        Debug.Log(movementDirectionVector);
     }
 
     private void ResetArrowCharge() {
@@ -222,7 +216,7 @@ public class PlayerScript : MonoBehaviour {
         arrowTimer = 0.0f;
     }
 
-    //Ermittelt einen Richtungsvektor von der Spielerposition bis zur Mausposition und bilde Normalvektor.
+    //Ermittelt einen Richtungsvektor von der Spielerposition bis zur Mausposition und bildet Normalvektor.
     private Vector3 GetArrowDirectionVector() {
 		Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition); 
 		RaycastHit hit; 
