@@ -1,21 +1,23 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
 
 public class PlayerScript : MonoBehaviour {
+    public Transform testTarget;
 	public GameObject arrowPrefab;
     public GameObject fakeArrowPrefab;
     public GameObject bowPrefab;
 	public Slider arrowChargeSlider;
+
     public float arrowPower = 30f;
     public float arrowTimerMax = 1f;
-
-    private Animator animator;
     public float MaxSpeed = 50;
     public float Acceleration = 400;
     public float JumpSpeed = 20;
     public float JumpDuration;
+    public float JumpDelayTime = 2f;
 
     public bool EnableDoubleJump = true;
     public bool WallHitDoubleJumpOverride = true;
@@ -26,9 +28,12 @@ public class PlayerScript : MonoBehaviour {
     private bool jumpKeyDown = false;
     private bool canVariableJump = false;
     private float jmpDuration;
+    private bool canMove = true;
 
-    Rigidbody rb;
-
+    private Transform chestBone;
+    private Transform bowBone;
+    private Rigidbody rb;
+    private Animator animator;
     private GameObject bow;
     private GameObject fakeArrow;
     
@@ -38,11 +43,12 @@ public class PlayerScript : MonoBehaviour {
 
 
     void Awake () {		
-		SpawnBow ();
 		rb = GetComponent<Rigidbody>();
         fakeArrow = new GameObject();
-
         animator = transform.GetChild(0).GetComponent<Animator>();
+        chestBone = transform.Find("Dude/Armature/lowerBody/upperBody");
+        bowBone = transform.Find("Dude/Armature/lowerBody/upperBody/shoulder_L/arm1_L/arm2_L/hand1_L/BowBone");
+        SpawnBow();
     }
 
 	void Update() {
@@ -51,7 +57,6 @@ public class PlayerScript : MonoBehaviour {
 
 	void FixedUpdate() {
 		rb.velocity += Vector3.up * Physics.gravity.y * 3f * Time.deltaTime;
-		RotateBow ();
 	}
 
     //Alles Movement bezogenes
@@ -78,9 +83,9 @@ public class PlayerScript : MonoBehaviour {
 
         float horizontal = Input.GetAxis("Horizontal");
 
-        if(horizontal <= -0.1f) {
+        if(horizontal <= -0.1f && canMove) {
             movingLeft = true;
-        } else if (horizontal >= 0.1f) {
+        } else if (horizontal >= 0.1f && canMove) {
             movingRight = true;
         }
 
@@ -147,21 +152,17 @@ public class PlayerScript : MonoBehaviour {
                         }
                     } else {
                         rb.velocity = new Vector3(this.JumpSpeed * wallHitDirection, this.JumpSpeed);
+
+                        //Movement nach Walljump kurz verhindern, um Jump länger wirken zu lassen
+                        if(canMove) {
+                            canMove = false;
+                            StartCoroutine(DelayMoveAfterWalljump());
+                        }
                     }
 
                     if(!onTheGround && !wallHit) {
                         canDoubleJump = false;
                     }
-
-                    //if(canVariableJump) {
-                    //    jmpDuration += Time.deltaTime;
-                    //    if(jmpDuration / 1000 < JumpDuration) {
-                    //        rb.AddForce(Vector3.up * this.JumpSpeed);
-                    //    } else {
-                    //        jmpDuration = 0;
-                    //        canVariableJump = false;
-                    //    }
-                    //}
                 }
             }
         } else {
@@ -169,9 +170,31 @@ public class PlayerScript : MonoBehaviour {
         }
 
         //Movement Aimationen
+        AnimatorStateInfo currentBaseState = animator.GetCurrentAnimatorStateInfo(0);
+        
         float actualSpeed = Mathf.Abs(rb.velocity.x) / MaxSpeed;
         animator.SetFloat("MoveSpeed", actualSpeed);
-        //Debug.Log(actualSpeed);
+        
+
+        if(actualSpeed > 0.1 && actualSpeed < 0.8) {
+            animator.speed = actualSpeed * 3f;
+        } else if (actualSpeed > 0.8) {
+            animator.speed = actualSpeed * 1.5f;
+        } else {
+            animator.speed = 1f;
+        }
+
+
+        //chestBone.LookAt(GetMouseVectorNormalized());
+        chestBone.rotation = Quaternion.LookRotation(GetMouseVectorNormalized());
+        chestBone.rotation *= Quaternion.Euler(0, 0, -90);
+
+        Debug.Log(chestBone.rotation);
+    }
+
+    IEnumerator DelayMoveAfterWalljump() {
+        yield return new WaitForSeconds(JumpDelayTime);
+        canMove = true;
     }
 
     //Schauen ob der Arrow auflädt und platziere Arrow Attrappe. Setze Maximale Chargedauer.
@@ -182,10 +205,9 @@ public class PlayerScript : MonoBehaviour {
                 arrowTimer = arrowTimerMax;
             }
 
-            Vector3 lookVector = GetArrowDirectionVector();
-            Vector3 positionOffset = lookVector * percentageArrowPower * -1.2f;
+            Vector3 lookVector = GetMouseVectorNormalized();
             fakeArrow.transform.SetParent(transform);
-            fakeArrow.transform.position = transform.position + positionOffset;
+            fakeArrow.transform.position = bowBone.position + lookVector * percentageArrowPower * -1.2f;
             fakeArrow.transform.rotation = Quaternion.LookRotation(lookVector, Vector3.up);
         }
     }
@@ -195,7 +217,7 @@ public class PlayerScript : MonoBehaviour {
         if(!arrowCharging) {
             arrowCharging = true;
             Destroy(fakeArrow);
-            fakeArrow = Instantiate(fakeArrowPrefab, transform.position, Quaternion.identity) as GameObject;
+            fakeArrow = Instantiate(fakeArrowPrefab, bowBone.position, Quaternion.identity) as GameObject;
         }
     }
 
@@ -203,8 +225,8 @@ public class PlayerScript : MonoBehaviour {
     private void ShootArrow() {
         Destroy(fakeArrow);
         float arrowVelocity = percentageArrowPower * arrowPower;
-        Vector3 directionVector = GetArrowDirectionVector();
-        GameObject newArrow = Instantiate(arrowPrefab, transform.position, Quaternion.identity) as GameObject;
+        Vector3 directionVector = GetMouseVectorNormalized();
+        GameObject newArrow = Instantiate(arrowPrefab, bowBone.position, Quaternion.identity) as GameObject;
         Rigidbody rbArrow = newArrow.GetComponent<Rigidbody>();
         rbArrow.velocity = directionVector * arrowVelocity;
 
@@ -217,7 +239,7 @@ public class PlayerScript : MonoBehaviour {
     }
 
     //Ermittelt einen Richtungsvektor von der Spielerposition bis zur Mausposition und bildet Normalvektor.
-    private Vector3 GetArrowDirectionVector() {
+    private Vector3 GetMouseVectorNormalized() {
 		Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition); 
 		RaycastHit hit; 
 		Vector3 mousePos = new Vector3();
@@ -294,15 +316,9 @@ public class PlayerScript : MonoBehaviour {
     }
 
     private void SpawnBow() {
-		bow = Instantiate (bowPrefab, transform.position, Quaternion.identity) as GameObject;
-		bow.transform.rotation = Quaternion.AngleAxis (90, Vector3.right);
-		bow.transform.localScale = new Vector3 (0.1f, 0.1f, 0.1f);
-		bow.transform.SetParent (transform);
-	}
-
-	private void RotateBow() {
-		Quaternion lookRot = Quaternion.LookRotation (GetArrowDirectionVector (), Vector3.up);
-		bow.transform.rotation = lookRot;
-		bow.gameObject.layer = 8;
+		bow = Instantiate (bowPrefab, bowBone.position, Quaternion.identity) as GameObject;
+		bow.transform.rotation = Quaternion.AngleAxis (90, Vector3.up);
+		bow.transform.localScale = new Vector3 (0.15f, 0.15f, 0.15f);
+		bow.transform.SetParent (bowBone);
 	}
 }
