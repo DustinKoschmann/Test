@@ -5,7 +5,6 @@ using UnityEngine;
 using UnityEngine.UI;
 
 public class PlayerScript : MonoBehaviour {
-    public Transform testTarget;
 	public GameObject arrowPrefab;
     public GameObject fakeArrowPrefab;
     public GameObject bowPrefab;
@@ -18,40 +17,44 @@ public class PlayerScript : MonoBehaviour {
     public float JumpSpeed = 20;
     public float JumpDuration;
     public float JumpDelayTime = 2f;
-
     public bool EnableDoubleJump = true;
     public bool WallHitDoubleJumpOverride = true;
 
 
     //Internal 
-    private bool canDoubleJump = true;
-    private bool jumpKeyDown = false;
-    private bool canVariableJump = false;
-    private float jmpDuration;
-    private bool canMove = true;
-
-    private Transform chestBone;
+    private Transform upperBodyBone;
     private Transform bowBone;
+    private Transform character;
     private Rigidbody rb;
     private Animator animator;
     private GameObject bow;
     private GameObject fakeArrow;
-    
-	private bool arrowCharging = false;
-	private float arrowTimer = 0f;
-    float percentageArrowPower = 0f;
+    private Vector3 lookVector;
+
+    private bool arrowCharging = false;
+    private bool canDoubleJump = true;
+    private bool jumpKeyDown = false;
+    private bool canVariableJump = false;
+    private bool canMove = true;
+    private float jmpDuration;
+    private float arrowTimer = 0f;
+    private float percentageArrowPower = 0f;
+
+
 
 
     void Awake () {		
 		rb = GetComponent<Rigidbody>();
         fakeArrow = new GameObject();
-        animator = transform.GetChild(0).GetComponent<Animator>();
-        chestBone = transform.Find("Dude/Armature/lowerBody/upperBody");
-        bowBone = transform.Find("Dude/Armature/lowerBody/upperBody/shoulder_L/arm1_L/arm2_L/hand1_L/BowBone");
+        character = transform.GetChild(0);
+        animator = character.GetComponent<Animator>();
+        upperBodyBone = character.Find("Armature/lowerBody/upperBody");
+        bowBone = character.Find("Armature/lowerBody/upperBody/shoulder_L/arm1_L/arm2_L/hand1_L/BowBone");
         SpawnBow();
     }
 
 	void Update() {
+        lookVector = GetMouseVectorNormalized();
         Movement();
     }
 
@@ -184,12 +187,16 @@ public class PlayerScript : MonoBehaviour {
             animator.speed = 1f;
         }
 
-
-        //chestBone.LookAt(GetMouseVectorNormalized());
-        chestBone.rotation = Quaternion.LookRotation(GetMouseVectorNormalized());
-        chestBone.rotation *= Quaternion.Euler(0, 0, -90);
-
-        Debug.Log(chestBone.rotation);
+        if(lookVector.x >= 0) {
+            character.rotation = Quaternion.Euler(0, 90, 0);
+        } else {
+            character.rotation = Quaternion.Euler(0, -90, 0);
+        }
+        
+        upperBodyBone.rotation = Quaternion.LookRotation(lookVector);
+        upperBodyBone.rotation *= Quaternion.Euler(0, 0, -90);
+        
+        Debug.Log(upperBodyBone.rotation);
     }
 
     IEnumerator DelayMoveAfterWalljump() {
@@ -203,9 +210,7 @@ public class PlayerScript : MonoBehaviour {
             arrowTimer += Time.deltaTime;
             if(arrowTimer >= arrowTimerMax) {
                 arrowTimer = arrowTimerMax;
-            }
-
-            Vector3 lookVector = GetMouseVectorNormalized();
+            }            
             fakeArrow.transform.SetParent(transform);
             fakeArrow.transform.position = bowBone.position + lookVector * percentageArrowPower * -1.2f;
             fakeArrow.transform.rotation = Quaternion.LookRotation(lookVector, Vector3.up);
@@ -225,10 +230,9 @@ public class PlayerScript : MonoBehaviour {
     private void ShootArrow() {
         Destroy(fakeArrow);
         float arrowVelocity = percentageArrowPower * arrowPower;
-        Vector3 directionVector = GetMouseVectorNormalized();
         GameObject newArrow = Instantiate(arrowPrefab, bowBone.position, Quaternion.identity) as GameObject;
         Rigidbody rbArrow = newArrow.GetComponent<Rigidbody>();
-        rbArrow.velocity = directionVector * arrowVelocity;
+        rbArrow.velocity = lookVector * arrowVelocity + rb.velocity;
 
         Vector3 movementDirectionVector = rb.velocity.normalized;
     }
